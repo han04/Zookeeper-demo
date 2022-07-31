@@ -23,12 +23,12 @@ public class DistributedLock {
       zk = new ZooKeeper(connectString, sessionTime, new Watcher() {
          @Override
          public void process(WatchedEvent watchedEvent) {
-            //connectLatch 如果连接上zk 可以释放
+            //连接建立时 打开latch 唤醒wait在该latch上的线程
             if (watchedEvent.getState() == Event.KeeperState.SyncConnected) {
                connectLatch.countDown();
             }
-            //waitLatch 需要等待释放
-            if (watchedEvent.getType() == Event.EventType.NodeDeleted && watchedEvent.getType().equals(waitPath)) {
+            //发生了waitPath上的删除事件
+            if (watchedEvent.getType() == Event.EventType.NodeDeleted && watchedEvent.getPath().equals(waitPath)) {
                waitLatch.countDown();
             }
          }
@@ -40,12 +40,11 @@ public class DistributedLock {
       //判断根节点是否存在
       Stat stat = zk.exists("/locks", false);
 
-      //如果不存在，创建
-      if (stat == null) {
-         zk.create("/locks", "/locks".getBytes(), ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
-      }
-
       //判断根节点 /locks是否存在
+      if (stat == null) {
+         System.out.println("根节点不存在~");
+         zk.create("/locks",new byte[0], ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
+      }
    }
 
    //对zk加锁
@@ -53,6 +52,7 @@ public class DistributedLock {
       // 创建临时带序号节点
       try {
          currentNode = zk.create("/locks/" + "seq-", null, ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL_SEQUENTIAL);
+         Thread.sleep(20);
          // 判断创建的节点是否是最小序号节点
          // 是，获取到锁
          // 否，监听前一序号节点
@@ -65,7 +65,7 @@ public class DistributedLock {
             Collections.sort(children);
 
             //获取节点名称
-            String thisNode = currentNode.substring("/locks/".length());
+         String thisNode = currentNode.substring("/locks/".length());
 
             //获取该节点在children 集合中的位置
             int index = children.indexOf(thisNode);
@@ -76,10 +76,11 @@ public class DistributedLock {
             } else {
                //监听前一个节点的变化
                waitPath = "/locks/" + children.get(index - 1);
-               zk.getData(waitPath, false, null);
+               zk.getData(waitPath, true, new Stat());
 
                //等待监听
                waitLatch.await();
+               return;
             }
          }
       } catch (KeeperException e) {
