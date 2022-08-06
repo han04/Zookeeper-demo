@@ -8,23 +8,23 @@ import org.apache.zookeeper.data.Stat;
 
 import java.util.concurrent.CountDownLatch;
 
-public class MyWatcherAndCallBack implements Watcher, AsyncCallback.StatCallback,AsyncCallback.DataCallback {
+public class MyWatcherAndCallBack implements Watcher, AsyncCallback.StatCallback, AsyncCallback.DataCallback {
     private ZooKeeper zooKeeper;
-    private myConf myconf;
+    private MyConf myconf;
     private CountDownLatch latch = new CountDownLatch(1);
 
-    public void setMyConf(myConf myconf){
+    public void setMyConf(MyConf myconf) {
         this.myconf = myconf;
     }
 
-    public void setZooKeeper(){
+    public void setZooKeeper(ZooKeeper zooKeeper) {
         this.zooKeeper = zooKeeper;
     }
 
     //DataCallback
     @Override
     public void processResult(int i, String s, Object o, byte[] bytes, Stat stat) {
-        if(stat != null){
+        if (stat != null) {
             myconf.setConfData(new String(bytes));
             latch.countDown();
         }
@@ -34,15 +34,15 @@ public class MyWatcherAndCallBack implements Watcher, AsyncCallback.StatCallback
     @Override
     public void processResult(int i, String s, Object o, Stat stat) {
         // if exists ,get data
-        if(stat != null){
-            zooKeeper.getData("/AppConf",this,this,"aaa");
+        if (stat != null) {
+            zooKeeper.getData("/AppConf", this, this, "aaa");
         }
     }
 
     // Watcher
     @Override
     public void process(WatchedEvent watchedEvent) {
-        switch (watchedEvent.getType()){
+        switch (watchedEvent.getType()) {
             case None:
             case DataWatchRemoved:
             case ChildWatchRemoved:
@@ -50,7 +50,7 @@ public class MyWatcherAndCallBack implements Watcher, AsyncCallback.StatCallback
                 break;
             case NodeCreated:
             case NodeDataChanged:
-                zooKeeper.getData("/AppConf",this,this,"bbb");
+                zooKeeper.getData("/AppConf", this, this, "bbb");
                 break;
             case NodeDeleted:
                 myconf.setConfData("");
@@ -60,7 +60,7 @@ public class MyWatcherAndCallBack implements Watcher, AsyncCallback.StatCallback
     }
 
     public void aWait() throws InterruptedException {
-        zooKeeper.exists("/AppConf",this,this,"123");
+        zooKeeper.exists("/AppConf", this, this, "123");
         latch.await();
     }
 }
